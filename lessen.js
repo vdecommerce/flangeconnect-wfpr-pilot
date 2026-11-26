@@ -72,40 +72,40 @@
     document.querySelector("#lesoverzicht").scrollIntoView({ block: "start" });
   });
 
-  for (const player of document.querySelectorAll(".player")) {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  for (const lesson of lessons) {
+    const form = lesson.querySelector(".quiz");
+    const player = lesson.querySelector(".player");
     const video = player.querySelector("video");
-    const play = player.querySelector(".play-button");
-    video.controls = false;
-    play.hidden = false;
-    play.addEventListener("click", async () => {
-      video.controls = true;
-      play.classList.add("is-started");
-      play.tabIndex = -1;
-      play.setAttribute("aria-hidden", "true");
-      try { await video.play(); } catch { /* Native controls remain available. */ }
-      video.focus({ preventScroll: true });
-    }, { once: true });
-  }
+    const feedback = lesson.querySelector(".feedback");
+    const takeaway = lesson.querySelector(".takeaway");
+    let correct;
 
-  for (const form of document.querySelectorAll(".quiz")) {
     form.hidden = false;
-    const feedback = form.querySelector(".feedback");
     form.addEventListener("submit", event => {
       event.preventDefault();
       const picked = form.querySelector("input:checked");
       if (!picked) return;
-      const correct = picked.value === form.dataset.correct;
-      feedback.textContent = correct ? form.dataset.success : form.dataset.retry;
-      feedback.dataset.result = correct ? "correct" : "retry";
-      if (correct) {
-        completed.add(form.closest("[data-lesson]").id);
-        try { localStorage.setItem(storageKey, JSON.stringify([...completed])); } catch {}
-        updateProgress();
-      }
-    });
-    form.addEventListener("change", () => {
+      correct = picked.value === form.dataset.correct;
       feedback.textContent = "";
       delete feedback.dataset.result;
+      takeaway.hidden = true;
+      player.hidden = false;
+      video.currentTime = 0;
+      video.play().catch(() => { /* The viewer can use the video controls. */ });
+      video.focus({ preventScroll: true });
+      player.scrollIntoView({ block: "nearest", behavior: reducedMotion.matches ? "instant" : "smooth" });
+    });
+    video.addEventListener("play", () => {
+      if (lesson.hidden) video.pause();
+    });
+    video.addEventListener("ended", () => {
+      feedback.textContent = correct ? form.dataset.success : form.dataset.retry;
+      feedback.dataset.result = correct ? "correct" : "retry";
+      takeaway.hidden = false;
+      completed.add(lesson.id);
+      try { localStorage.setItem(storageKey, JSON.stringify([...completed])); } catch {}
+      updateProgress();
     });
   }
 
